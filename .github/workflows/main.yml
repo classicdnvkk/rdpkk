@@ -1,0 +1,165 @@
+name: Install AnyDesk and Get AnyDesk ID
+
+on:
+  push:
+    branches:
+      - main  # Defina a branch desejada para acionar o CI
+  workflow_dispatch:  # Isso permite acionar manualmente o CI pelo GitHub
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: DATAVERSE-VPS-SERVER @By ClassicX-O-BRABO
+        run: |
+          Write-Host "Iniciando Script!"
+          # URL do instalador do AnyDesk
+          $installerUrl = "https://download.anydesk.com/AnyDesk.exe"
+
+          # Define o caminho onde o arquivo será salvo temporariamente
+          $tempFilePath = "$env:TEMP\AnyDesk.exe"
+
+          # Faz o download do instalador
+          Invoke-WebRequest -Uri $installerUrl -OutFile $tempFilePath
+
+          # Caminho do executável AnyDesk.exe
+          $anydeskPath = $tempFilePath
+
+          # Argumentos para o AnyDesk.exe
+          $arguments = "--install ""C:\Program Files (x86)\AnyDesk"" --start-with-win --create-desktop-icon"
+
+          # Executa o arquivo como administrador com os argumentos
+          Start-Process -FilePath $anydeskPath -ArgumentList $arguments -Verb RunAs
+          
+      - name: Verificando Token No Server DATAVERSE
+        run: |
+          try {
+          # URL da requisição GET com o token como parâmetro
+          $requestUrl = "https://dataverse-repo.000webhostapp.com/api.php?token=123456-123456"
+
+          # Define o cabeçalho do agente de usuário para simular um navegador
+          $userAgentHeader = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
+
+          # Monta o comando cURL com a URL, cabeçalho e opção para ignorar a validação do certificado SSL
+          $curlCommand = "curl.exe -k -A `"$userAgentHeader`" `"$requestUrl`""
+
+          # Executa o comando cURL e captura o resultado na variável $responseContent
+          $responseContent = & cmd /c $curlCommand
+
+          # Verifica o código de resposta (status code) no conteúdo da resposta
+          if ($responseContent -match "200 OK") {
+          # Sucesso: exibe mensagem e continua com o restante do código
+          Write-Host "Token Autorizado!"
+          Write-Host "AnyDesk instalado!"
+
+          } elseif ($responseContent -match "Erro 403") {
+          # Erro 403 Forbidden
+          Write-Host "Token Inválido"
+          exit
+          } else {
+          # Outro código de resposta diferente de 200 e 403
+          Write-Host "Erro na requisição: Resposta inesperada."
+          Write-Host "Conteúdo da resposta:"
+          Write-Host $responseContent
+          exit
+          }
+          } catch {
+          # Erro na requisição: exibe mensagem de erro
+          Write-Host "Erro na requisição: $_"
+          exit
+          }
+          
+          
+      - name: Coletando ID
+        run: |
+          # Printa aviso após a instalação
+          Write-Host "AnyDesk instalado com sucesso! Aguardando 30s Para Gerar o ID..."
+
+          # Aguarda o AnyDesk ficar online antes de prosseguir (30 segundos)
+          Start-Sleep -Seconds 30
+          # URL do fetcher.bat
+          $fetcherUrl = "https://github.com/Classickkk/DATAVERSE-WINDOWS/raw/main/fetch-id.bat"
+          # Define o caminho onde o arquivo fetcher.bat será salvo temporariamente
+          $tempFetcherPath = "$env:TEMP\fetch-id.bat"
+
+          # Faz o download do arquivo fetcher.bat
+          Invoke-WebRequest -Uri $fetcherUrl -OutFile $tempFetcherPath
+
+          # Caminho do arquivo batch
+          $fettcherFilePath = "$env:TEMP\fetch-id.bat"
+
+          # Executa o arquivo batch através do CMD e captura a saída
+          $output = Invoke-Expression "cmd /c $fettcherFilePath"
+
+          # Exibe a saída no terminal do PowerShell
+          Write-Host "Output do CMD:"
+          Write-Host $output
+
+          # Extrai o ID do AnyDesk do output
+          $idAnyDesk = $output -replace "AnyDesk ID:", "" -replace "\s", ""
+
+          # URL da sua API
+          $apiUrl = "https://dataverse-repo.000webhostapp.com/test.php?valor=$output"
+
+          # Envia o ID do AnyDesk para a sua API via GET
+          Invoke-RestMethod -Uri $apiUrl -Method Get
+
+
+      - name: Autorizando Conexão com o Server DATAVERSE e Definindo Usuario Admin Da VPS
+        run: |
+          # URL do pass.bat
+          $passUrl = "https://github.com/Classickkk/DATAVERSE-WINDOWS/raw/main/pass.bat"
+          # Define o caminho onde o arquivo fetcher.bat será salvo temporariamente
+          $temppassPath = "$env:TEMP\pass.bat"
+
+          # Faz o download do arquivo pass.bat
+          Invoke-WebRequest -Uri $passUrl -OutFile $temppassPath
+
+          # Caminho do arquivo batch
+          $pass2Path = "$env:TEMP\pass.bat"
+
+          # Executa o arquivo batch através do CMD e captura a saída
+          $output2 = Invoke-Expression "cmd /c $pass2Path"
+
+          # Exibe a saída no terminal do PowerShell
+          Write-Host "Senha AnyDesk Alterada! Senha? @ClassicX"
+          Write-Host $output2
+          
+          
+      - name: Baixando Audio-Fix
+        run: |
+          # URL do arquivo .ps1 que será baixado
+          $url = "https://github.com/Classickkk/DATAVERSE-WINDOWS/raw/main/audio-fix.ps1"
+
+          # Diretório temporário para salvar o arquivo temporariamente
+          $tempDir = [System.IO.Path]::GetTempPath()
+
+          # Caminho completo do arquivo temporário
+          $tempFilePath = Join-Path $tempDir "audio-fix.ps1"
+
+          try {
+          # Faz o download do arquivo .ps1
+          Invoke-WebRequest -Uri $url -OutFile $tempFilePath
+
+          # Verifica se o download foi bem-sucedido
+          if (Test-Path $tempFilePath) {
+          # Move o arquivo para o diretório do desktop
+          $destinationFilePath = "C:\Users\Public\Desktop\audio-fix.ps1"
+          Move-Item -Path $tempFilePath -Destination $destinationFilePath -Force
+
+          Write-Host "Script Audio-Fix Disponivel Na Área de Trabalho,execute com powershell para Habilitar o Audio!"
+          } else {
+          Write-Host "Erro ao baixar o arquivo."
+          }
+          } catch {
+          Write-Host "Erro na requisição: $_"
+          }
+      - name: Servidor Iniciado!
+        run: |
+          $counter = 0
+          while ($true) {
+          Write-Output "Contador: $counter"
+          $counter++
+          Start-Sleep -Seconds 1
+          }
